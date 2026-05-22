@@ -5,7 +5,8 @@ function normalizeBotUsername(username: string) {
 }
 
 function isValidBotUsername(username: string) {
-  return /^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(username);
+  const lower = username.toLowerCase();
+  return /^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(username) && !lower.includes("your_bot_username");
 }
 
 export async function GET() {
