@@ -168,7 +168,7 @@ const KIND_TABS: Array<{ value: OfferKind | "ALL"; label: string }> = [
   { value: "ALL", label: "Все" },
   { value: "PRODUCT", label: "Товары" },
   { value: "SERVICE", label: "Услуги" },
-  { value: "COURSE", label: "Обучение" },
+  { value: "COURSE", label: "Курсы" },
 ];
 
 const OFFER_TYPES: Record<OfferKind, string[]> = {
@@ -1910,7 +1910,7 @@ function HomeScreen({
               whiteSpace: "nowrap",
             }}
           >
-            {kindFilter === "ALL" ? "Все товары" : KIND_TABS.find((tab) => tab.value === kindFilter)?.label || "Все товары"}
+            Все товары
           </button>
           <button
             className="tap-scale"
@@ -1960,7 +1960,7 @@ function HomeScreen({
           </button>
           <div style={{ width: 1, height: 30, background: "#444", margin: "0 5px", flexShrink: 0 }} />
           {KIND_TABS.map((tab) => (
-            <button key={tab.value} className={`pill${kindFilter === tab.value ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => selectKind(tab.value)}>
+            <button key={tab.value} className={`pill${kindFilter === tab.value ? " active" : ""}`} style={{ height: 46, padding: "0 18px", fontSize: 16, flexShrink: 0 }} onClick={() => selectKind(tab.value)}>
               {tab.label}
             </button>
           ))}
