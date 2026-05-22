@@ -543,6 +543,11 @@ function normalizeBotUsername(username: string) {
   return username.trim().replace(/^@+/, "");
 }
 
+function isValidBotUsername(username: string) {
+  const lower = username.toLowerCase();
+  return /^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(username) && !lower.includes("your_bot_username");
+}
+
 function getOfferRulesStorageKey(userId: string) {
   return `${OFFER_RULES_STORAGE_KEY}:${userId}`;
 }
@@ -883,10 +888,33 @@ function LoadingScreen() {
 }
 
 function TelegramLoginScreen() {
-  const botUsername = normalizeBotUsername(process.env.NEXT_PUBLIC_BOT_USERNAME || "");
-  const lowerBotUsername = botUsername.toLowerCase();
-  const hasValidBotUsername =
-    /^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(botUsername) && !lowerBotUsername.includes("your_bot_username");
+  const initialBotUsername = normalizeBotUsername(process.env.NEXT_PUBLIC_BOT_USERNAME || "");
+  const [botUsername, setBotUsername] = useState(() => (isValidBotUsername(initialBotUsername) ? initialBotUsername : ""));
+  const [botConfigLoaded, setBotConfigLoaded] = useState(() => isValidBotUsername(initialBotUsername));
+  const hasValidBotUsername = isValidBotUsername(botUsername);
+
+  useEffect(() => {
+    if (hasValidBotUsername) return;
+
+    let cancelled = false;
+    fetch("/api/telegram/config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        const nextBotUsername = normalizeBotUsername(data?.botUsername || "");
+        if (isValidBotUsername(nextBotUsername)) {
+          setBotUsername(nextBotUsername);
+        }
+      })
+      .catch(() => null)
+      .finally(() => {
+        if (!cancelled) setBotConfigLoaded(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasValidBotUsername]);
 
   useEffect(() => {
     if (!hasValidBotUsername) return;
@@ -933,7 +961,8 @@ function TelegramLoginScreen() {
         </div>
         <div className="panel" style={{ padding: 14, marginBottom: 16, background: "linear-gradient(135deg,rgba(149,100,255,.24),rgba(89,207,255,.12))" }}>
           <div id="telegram-widget" style={{ display: "flex", justifyContent: "center", minHeight: 52 }}>
-            {!hasValidBotUsername && <div style={{ color: T.red, fontSize: 13 }}>Telegram-бот не настроен.</div>}
+            {!botConfigLoaded && <Spinner />}
+            {botConfigLoaded && !hasValidBotUsername && <div style={{ color: T.red, fontSize: 13 }}>Telegram-бот не настроен.</div>}
           </div>
         </div>
         <div style={{ color: T.text3, fontSize: 12, lineHeight: 1.6 }}>Открой маркет через Telegram-бота или войди через виджет.</div>
