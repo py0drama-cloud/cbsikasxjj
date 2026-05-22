@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   if ((count || 0) >= limit) return NextResponse.json({ ok: false, error: `Лимит предложений: ${limit}.` }, { status: 400 });
 
   const payload = {
-    id: `offer_${Date.now()}`,
+    id: String(body.id || `offer_${Date.now()}`),
     uid: auth.userId,
     title,
     description,
@@ -66,6 +66,8 @@ export async function POST(req: NextRequest) {
     auto: Boolean(body.auto ?? body.isAutoDelivery),
     auto_content: body.auto || body.isAutoDelivery ? String(body.auto_content || body.deliveryText || "").trim() || null : null,
     banner: String(body.banner || "").trim() || null,
+    images: Array.isArray(body.images) ? body.images.slice(0, 2) : null,
+    cover_index: 0,
     boosted: 0,
     boost_end: 0,
     sales: 0,

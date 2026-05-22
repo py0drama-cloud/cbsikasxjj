@@ -1420,43 +1420,20 @@ function CreateOfferSheet({
       rating: 0,
     };
 
-    let response = await supabase.from("offers").insert(payload).select("*, user:users(*)").single();
-
-    if (response.error?.message?.includes("stock")) {
-      const legacyPayload = {
-        id: payload.id,
-        uid: payload.uid,
-        title: payload.title,
-        description: payload.description,
-        kind: payload.kind,
-        type: payload.type,
-        price: payload.price,
-        cur: payload.cur,
-        auto: payload.auto,
-        auto_content: payload.auto_content,
-        banner: payload.banner,
-        images: payload.images,
-        cover_index: 0,
-        boosted: payload.boosted,
-        boost_end: payload.boost_end,
-        sales: payload.sales,
-        rating: payload.rating,
-      };
-      response = await supabase.from("offers").insert(legacyPayload).select("*, user:users(*)").single();
-    }
-
+    const response = await fetch("/api/offers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json().catch(() => null);
     setSaving(false);
 
-    if (response.error || !response.data) {
-      const message =
-        response.error?.message?.includes("stock")
-          ? "В базе не хватает новой колонки stock. Прогони sql/roworth_tz_upgrade.sql в Supabase."
-          : response.error?.message || "Не удалось создать предложение.";
-      showToast(message, "err");
+    if (!response.ok || !result?.ok || !result.offer) {
+      showToast(result?.error || "Не удалось создать предложение.", "err");
       return;
     }
 
-    onCreated(response.data as unknown as Offer);
+    onCreated(result.offer as Offer);
     onClose();
     showToast("Предложение опубликовано.");
   };
