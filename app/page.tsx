@@ -879,15 +879,7 @@ function Sheet({
           >
             ‹ Назад
           </button>
-          <div style={{ width: 50, height: 5, borderRadius: 999, background: "rgba(255,255,255,.18)" }} />
-          <button
-            type="button"
-            className="btn-ghost tap-scale"
-            onClick={onClose}
-            style={{ width: 38, height: 38, borderRadius: 999, padding: 0, background: "rgba(255,255,255,.08)", fontSize: 18 }}
-          >
-            ×
-          </button>
+          {!fullScreen && <div style={{ width: 50, height: 5, borderRadius: 999, background: "rgba(255,255,255,.18)" }} />}
         </div>
         {children}
       </div>
@@ -1954,13 +1946,12 @@ function HomeScreen({
           </button>
         </div>
 
-        <div className="hide-scrollbar portal-appear" style={{ display: "flex", alignItems: "center", gap: 8, overflowX: "auto", marginBottom: 16, paddingBottom: 2 }}>
-          <button className="btn-ghost tap-scale" style={{ width: 42, height: 42, borderRadius: 999, padding: 0, background: "#222", flexShrink: 0 }} onClick={() => { setCurrencyFilter("ALL"); setSort("new"); }}>
+        <div className="portal-appear" style={{ display: "grid", gridTemplateColumns: "42px repeat(4, minmax(0, 1fr))", alignItems: "center", gap: 6, marginBottom: 16 }}>
+          <button className="btn-ghost tap-scale" style={{ width: 42, height: 42, borderRadius: 999, padding: 0, background: "#222" }} onClick={() => { setCurrencyFilter("ALL"); setSort("new"); }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="#A7A7A7"><path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z" /></svg>
           </button>
-          <div style={{ width: 1, height: 30, background: "#444", margin: "0 5px", flexShrink: 0 }} />
           {KIND_TABS.map((tab) => (
-            <button key={tab.value} className={`pill${kindFilter === tab.value ? " active" : ""}`} style={{ height: 46, padding: "0 18px", fontSize: 16, flexShrink: 0 }} onClick={() => selectKind(tab.value)}>
+            <button key={tab.value} className={`pill${kindFilter === tab.value ? " active" : ""}`} style={{ width: "100%", minWidth: 0, height: 42, justifyContent: "center", padding: "0 4px", fontSize: 14 }} onClick={() => selectKind(tab.value)}>
               {tab.label}
             </button>
           ))}
