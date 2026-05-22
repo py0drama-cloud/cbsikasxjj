@@ -91,6 +91,12 @@ type Order = {
   seller?: User | null;
 };
 
+type TelegramAuthPayload = {
+  initData?: string;
+  user?: TelegramUser;
+  username?: string;
+};
+
 type Review = {
   id: string;
   order_id: string;
@@ -973,9 +979,11 @@ function TelegramLoginScreen() {
 
 function SetupUsername({
   tgUser,
+  authPayload,
   onDone,
 }: {
   tgUser: TelegramUser;
+  authPayload?: TelegramAuthPayload | null;
   onDone: (user: User) => void;
 }) {
   const [username, setUsername] = useState(tgUser.username || "");
@@ -991,6 +999,24 @@ function SetupUsername({
 
     setLoading(true);
     setError("");
+
+    if (authPayload) {
+      const res = await fetch("/api/auth/telegram", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...authPayload, username: clean }),
+      });
+      const result = await res.json().catch(() => null);
+      setLoading(false);
+
+      if (!res.ok || !result?.ok || !result.user) {
+        setError(result?.error || "Не удалось создать профиль.");
+        return;
+      }
+
+      onDone(result.user as User);
+      return;
+    }
 
     const { data: existing } = await supabase
       .from("users")
@@ -3931,6 +3957,7 @@ export default function App() {
   const [status, setStatus] = useState<"loading" | "widget" | "setup" | "ready">("loading");
   const [me, setMe] = useState<User | null>(null);
   const [tgUser, setTgUser] = useState<TelegramUser | null>(null);
+  const [pendingAuthPayload, setPendingAuthPayload] = useState<TelegramAuthPayload | null>(null);
   const [tab, setTab] = useState("home");
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [chatUser, setChatUser] = useState<User | null>(null);
@@ -3987,6 +4014,39 @@ export default function App() {
     setUnread(count || 0);
   }, []);
 
+  const authTelegram = useCallback(async (payload: TelegramAuthPayload) => {
+    const res = await fetch("/api/auth/telegram", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = await res.json().catch(() => null);
+
+    if (!res.ok || !result?.ok) {
+      setStatus("widget");
+      return;
+    }
+
+    if (result.telegramUser) {
+      setTgUser(result.telegramUser as TelegramUser);
+    }
+
+    if (result.needsUsername) {
+      setPendingAuthPayload(payload);
+      setStatus("setup");
+      return;
+    }
+
+    if (result.user) {
+      setPendingAuthPayload(null);
+      setMe(result.user as User);
+      setStatus("ready");
+      return;
+    }
+
+    setStatus("widget");
+  }, []);
+
   const authUser = useCallback(async (telegramUser: TelegramUser) => {
     const userId = String(telegramUser.id);
     const { data, error } = await supabase.from("users").select("*").eq("id", userId).maybeSingle();
@@ -4020,7 +4080,15 @@ export default function App() {
     const detectTelegramUser = () => {
       if (cancelled) return;
       const telegramWebApp = getTelegramWebApp();
+      const initData = telegramWebApp?.initData || "";
       const windowTelegramUser = telegramWebApp?.initDataUnsafe?.user;
+
+      if (telegramWebApp && initData) {
+        telegramWebApp.ready();
+        telegramWebApp.expand();
+        authTelegram({ initData });
+        return;
+      }
 
       if (telegramWebApp && windowTelegramUser) {
         telegramWebApp.ready();
@@ -4043,14 +4111,14 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [authUser]);
+  }, [authTelegram, authUser]);
 
   useEffect(() => {
     (window as Window & { onTelegramAuth?: (user: TelegramUser) => void }).onTelegramAuth = (user: TelegramUser) => {
       setTgUser(user);
-      authUser(user);
+      authTelegram({ user });
     };
-  }, [authUser]);
+  }, [authTelegram]);
 
   useEffect(() => {
     if (!me) return;
@@ -4374,8 +4442,10 @@ export default function App() {
         <style>{CSS}</style>
         <SetupUsername
           tgUser={tgUser}
+          authPayload={pendingAuthPayload}
           onDone={(user) => {
             setMe(user);
+            setPendingAuthPayload(null);
             setStatus("ready");
           }}
         />
