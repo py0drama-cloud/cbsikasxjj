@@ -269,6 +269,10 @@ function getAppBaseUrl() {
   return process.env.NEXT_PUBLIC_APP_URL || "";
 }
 
+function normalizeBotUsername(username: string) {
+  return username.trim().replace(/^@+/, "");
+}
+
 function Spinner() {
   return (
     <div
@@ -439,9 +443,13 @@ function LoadingScreen() {
 }
 
 function TelegramLoginScreen() {
-  const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || "roworth_bot";
+  const botUsername = normalizeBotUsername(process.env.NEXT_PUBLIC_BOT_USERNAME || "");
+  const lowerBotUsername = botUsername.toLowerCase();
+  const hasValidBotUsername =
+    /^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(botUsername) && !lowerBotUsername.includes("your_bot_username");
 
   useEffect(() => {
+    if (!hasValidBotUsername) return;
     const container = document.getElementById("telegram-widget");
     if (!container) return;
     container.innerHTML = "";
@@ -453,7 +461,7 @@ function TelegramLoginScreen() {
     script.setAttribute("data-request-access", "write");
     script.setAttribute("data-onauth", "onTelegramAuth(user)");
     container.appendChild(script);
-  }, [botUsername]);
+  }, [botUsername, hasValidBotUsername]);
 
   return (
     <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
@@ -482,7 +490,9 @@ function TelegramLoginScreen() {
         <div style={{ color: T.text2, fontSize: 14, lineHeight: 1.6, margin: "8px 0 24px" }}>
           Маркет для Roblox-разработчиков прямо в Telegram Web App.
         </div>
-        <div id="telegram-widget" style={{ display: "flex", justifyContent: "center", minHeight: 52 }} />
+        <div id="telegram-widget" style={{ display: "flex", justifyContent: "center", minHeight: 52 }}>
+          {!hasValidBotUsername && <div style={{ color: T.red, fontSize: 13 }}>Telegram-бот не настроен.</div>}
+        </div>
         <div style={{ color: T.text3, fontSize: 12, marginTop: 18 }}>Открой маркет через Telegram-бота или войди через виджет.</div>
       </div>
     </div>
@@ -2448,16 +2458,36 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const telegramWebApp = getTelegramWebApp();
-    const windowTelegramUser = (window as Window & { Telegram?: { WebApp?: { initDataUnsafe?: { user?: TelegramUser } } } }).Telegram?.WebApp?.initDataUnsafe?.user;
-    if (telegramWebApp && windowTelegramUser) {
-      telegramWebApp.ready();
-      telegramWebApp.expand();
-      setTgUser(windowTelegramUser);
-      authUser(windowTelegramUser);
-      return;
-    }
-    setStatus("widget");
+    let cancelled = false;
+    let attempt = 0;
+    const maxAttempts = 20;
+
+    const detectTelegramUser = () => {
+      if (cancelled) return;
+      const telegramWebApp = getTelegramWebApp();
+      const windowTelegramUser = telegramWebApp?.initDataUnsafe?.user;
+
+      if (telegramWebApp && windowTelegramUser) {
+        telegramWebApp.ready();
+        telegramWebApp.expand();
+        setTgUser(windowTelegramUser);
+        authUser(windowTelegramUser);
+        return;
+      }
+
+      if (attempt < maxAttempts) {
+        attempt += 1;
+        window.setTimeout(detectTelegramUser, 100);
+        return;
+      }
+
+      setStatus("widget");
+    };
+
+    detectTelegramUser();
+    return () => {
+      cancelled = true;
+    };
   }, [authUser]);
 
   useEffect(() => {

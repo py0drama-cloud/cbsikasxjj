@@ -3,10 +3,14 @@ require('dotenv').config()
 const { Telegraf, Markup } = require('telegraf')
 
 const BOT_TOKEN = process.env.BOT_TOKEN
-const APP_URL = process.env.APP_URL || 'https://roworth.vercel.app'
+const APP_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL
 
 if (!BOT_TOKEN) {
   throw new Error('BOT_TOKEN is required. Add it to bot/.env before starting the bot.')
+}
+
+if (!APP_URL) {
+  throw new Error('APP_URL is required. Set it to your current Vercel Web App URL.')
 }
 
 const bot = new Telegraf(BOT_TOKEN)
