@@ -1,14 +1,20 @@
-require("dotenv").config();
+const path = require("path");
+
+require("dotenv").config({ path: path.resolve(__dirname, "..", ".env") });
 
 const { Telegraf, Markup } = require("telegraf");
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const APP_URL = process.env.APP_URL || "https://roworth.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
 const NEWS_CHANNEL_ID = process.env.NEWS_CHANNEL_ID || process.env.NEWS_CHANNEL_USERNAME || "";
 const NEWS_CHANNEL_USERNAME = (process.env.NEWS_CHANNEL_USERNAME || "").replace(/^@/, "");
 
 if (!BOT_TOKEN) {
-  throw new Error("BOT_TOKEN is required. Add it to bot/.env before starting the bot.");
+  throw new Error("BOT_TOKEN is required. Add it to the root .env before starting the bot.");
+}
+
+if (!APP_URL) {
+  throw new Error("NEXT_PUBLIC_APP_URL is required. Add it to the root .env before starting the bot.");
 }
 
 const bot = new Telegraf(BOT_TOKEN);

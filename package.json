@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "bot": "npm --prefix bot start",
+    "bot:dev": "npm --prefix bot run dev",
     "lint": "next lint"
   },
   "dependencies": {
