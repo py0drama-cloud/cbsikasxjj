@@ -161,8 +161,15 @@ type WalletTransaction = {
 const KIND_LABELS: Record<OfferKind, string> = {
   PRODUCT: "Товар",
   SERVICE: "Услуга",
-  COURSE: "Курс",
+  COURSE: "Обучение",
 };
+
+const KIND_TABS: Array<{ value: OfferKind | "ALL"; label: string }> = [
+  { value: "ALL", label: "Все" },
+  { value: "PRODUCT", label: "Товары" },
+  { value: "SERVICE", label: "Услуги" },
+  { value: "COURSE", label: "Обучение" },
+];
 
 const OFFER_TYPES: Record<OfferKind, string[]> = {
   PRODUCT: ["Скрипт", "Карта", "Модель", "Система", "UI", "Анимация", "Плагин", "Пак", "Другое"],
@@ -825,11 +832,21 @@ function Sheet({
   onClose,
   children,
   maxWidth = 540,
+  fullScreen = false,
 }: {
   onClose: () => void;
   children: React.ReactNode;
   maxWidth?: number;
+  fullScreen?: boolean;
 }) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 120, display: "flex", justifyContent: "center", alignItems: "flex-end" }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(4,2,12,.76)", backdropFilter: "blur(10px)" }} />
@@ -839,12 +856,13 @@ function Sheet({
           position: "relative",
           width: "100%",
           maxWidth,
-          maxHeight: "calc(100dvh - 10px)",
+          height: fullScreen ? "100dvh" : undefined,
+          maxHeight: fullScreen ? "100dvh" : "calc(100dvh - 10px)",
           background: "linear-gradient(180deg,rgba(17,12,35,.92),rgba(8,6,18,.98))",
-          borderTopLeftRadius: 30,
-          borderTopRightRadius: 30,
+          borderTopLeftRadius: fullScreen ? 0 : 30,
+          borderTopRightRadius: fullScreen ? 0 : 30,
           border: `1px solid ${T.line2}`,
-          borderBottom: "none",
+          borderBottom: fullScreen ? `1px solid ${T.line2}` : "none",
           padding: 18,
           paddingBottom: "calc(34px + env(safe-area-inset-bottom, 0px))",
           overscrollBehavior: "contain",
@@ -852,7 +870,25 @@ function Sheet({
           backdropFilter: "blur(26px)",
         }}
       >
-        <div style={{ width: 50, height: 5, borderRadius: 999, background: "rgba(255,255,255,.18)", margin: "0 auto 16px" }} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+          <button
+            type="button"
+            className="btn-ghost tap-scale"
+            onClick={onClose}
+            style={{ borderRadius: 999, padding: "8px 12px", fontSize: 13, fontWeight: 900, background: "rgba(255,255,255,.08)" }}
+          >
+            ‹ Назад
+          </button>
+          <div style={{ width: 50, height: 5, borderRadius: 999, background: "rgba(255,255,255,.18)" }} />
+          <button
+            type="button"
+            className="btn-ghost tap-scale"
+            onClick={onClose}
+            style={{ width: 38, height: 38, borderRadius: 999, padding: 0, background: "rgba(255,255,255,.08)", fontSize: 18 }}
+          >
+            ×
+          </button>
+        </div>
         {children}
       </div>
     </div>
@@ -1234,7 +1270,7 @@ function OfferSheet({
   offer: Offer;
   me: User;
   onClose: () => void;
-  onBuy: (offer: Offer) => Promise<void>;
+  onBuy: (offer: Offer) => Promise<boolean>;
   onOpenChat: (user: User) => void;
   onOpenProfile: (user: User) => void;
 }) {
@@ -1738,10 +1774,23 @@ function HomeScreen({
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<OfferKind | "ALL">("ALL");
+  const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [currencyFilter, setCurrencyFilter] = useState<Currency | "ALL">("ALL");
   const [sort, setSort] = useState<"new" | "sales" | "price_asc" | "price_desc">("new");
   const [showFilters, setShowFilters] = useState(true);
   const [compactMode, setCompactMode] = useState(false);
+
+  const activeTypes = useMemo(() => {
+    if (kindFilter === "ALL") {
+      return [...new Set(Object.values(OFFER_TYPES).flat())];
+    }
+    return OFFER_TYPES[kindFilter];
+  }, [kindFilter]);
+
+  const selectKind = (kind: OfferKind | "ALL") => {
+    setKindFilter(kind);
+    setTypeFilter("ALL");
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -1774,6 +1823,10 @@ function HomeScreen({
       result = result.filter((offer) => offer.kind === kindFilter);
     }
 
+    if (typeFilter !== "ALL") {
+      result = result.filter((offer) => offer.type === typeFilter);
+    }
+
     if (currencyFilter !== "ALL") {
       result = result.filter((offer) => offer.cur === currencyFilter);
     }
@@ -1784,7 +1837,7 @@ function HomeScreen({
     if (sort === "new") result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return result;
-  }, [currencyFilter, kindFilter, offers, search, sort]);
+  }, [currencyFilter, kindFilter, offers, search, sort, typeFilter]);
 
   const openTelegram = (handle: string) => {
     window.open(`https://t.me/${handle.replace(/^@/, "")}`, "_blank", "noopener,noreferrer");
@@ -1843,11 +1896,33 @@ function HomeScreen({
           </div>
         </button>}
 
-        <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 14 }}>
-          <button className="tap-scale" onClick={() => setKindFilter("ALL")} style={{ border: "none", background: "transparent", padding: 0, color: kindFilter === "ALL" ? "#fff" : "#3D3D3D", fontSize: 28, lineHeight: 1, fontWeight: 900, cursor: "pointer" }}>
-            Все товары
-          </button>
-          <button className="tap-scale" onClick={onOpenCart} style={{ border: "none", background: "transparent", padding: 0, color: "#3D3D3D", fontSize: 25, lineHeight: 1, fontWeight: 900, cursor: "pointer" }}>
+        <div className="hide-scrollbar" style={{ display: "flex", alignItems: "center", gap: 8, overflowX: "auto", marginBottom: 12, paddingBottom: 3 }}>
+          {KIND_TABS.map((tab) => {
+            const active = kindFilter === tab.value;
+            return (
+              <button
+                key={tab.value}
+                className="tap-scale"
+                onClick={() => selectKind(tab.value)}
+                style={{
+                  border: "none",
+                  borderRadius: 14,
+                  padding: "8px 15px",
+                  background: active ? "#fff" : "#242424",
+                  color: active ? "#050505" : "#9A9A9A",
+                  fontSize: 24,
+                  lineHeight: 1,
+                  fontWeight: 1000,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  boxShadow: active ? "0 14px 28px rgba(255,255,255,.12)" : "inset 0 1px 0 rgba(255,255,255,.06)",
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+          <button className="tap-scale" onClick={onOpenCart} style={{ border: "none", background: "transparent", padding: "0 2px", color: "#777", fontSize: 20, lineHeight: 1, fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" }}>
             Корзина{cartCount ? ` (${cartCount})` : ""}
           </button>
         </div>
@@ -1875,22 +1950,27 @@ function HomeScreen({
           </button>
         </div>
 
+        <div className="hide-scrollbar portal-appear" style={{ display: "flex", alignItems: "center", gap: 8, overflowX: "auto", marginBottom: showFilters ? 10 : 16, paddingBottom: 2 }}>
+          <button className={`pill${typeFilter === "ALL" ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setTypeFilter("ALL")}>Все</button>
+          {activeTypes.map((type) => (
+            <button key={type} className={`pill${typeFilter === type ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setTypeFilter(typeFilter === type ? "ALL" : type)}>
+              {type}
+            </button>
+          ))}
+        </div>
+
         {showFilters && <div className="hide-scrollbar portal-appear" style={{ display: "flex", alignItems: "center", gap: 8, overflowX: "auto", marginBottom: 16, paddingBottom: 2 }}>
           <button className="btn-ghost tap-scale" style={{ width: 42, height: 42, borderRadius: 999, padding: 0, background: "#222" }} onClick={() => setCurrencyFilter("ALL")}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="#A7A7A7"><path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z" /></svg>
           </button>
           <div style={{ width: 1, height: 30, background: "#444", margin: "0 5px" }} />
-          <button className={`pill${kindFilter === "ALL" ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setKindFilter("ALL")}>Все</button>
-          <button className={`pill${kindFilter === "PRODUCT" ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setKindFilter(kindFilter === "PRODUCT" ? "ALL" : "PRODUCT")}>Товары</button>
-          <button className={`pill${kindFilter === "SERVICE" ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setKindFilter(kindFilter === "SERVICE" ? "ALL" : "SERVICE")}>Услуги</button>
-          <button className={`pill${kindFilter === "COURSE" ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setKindFilter(kindFilter === "COURSE" ? "ALL" : "COURSE")}>Курсы</button>
           <button className={`pill${currencyFilter === "STARS" ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setCurrencyFilter(currencyFilter === "STARS" ? "ALL" : "STARS")}>Доллары</button>
           <button className={`pill${currencyFilter === "ROBUX" ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setCurrencyFilter(currencyFilter === "ROBUX" ? "ALL" : "ROBUX")}>Robux</button>
           <button className={`pill${sort === "sales" ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setSort(sort === "sales" ? "new" : "sales")}>Популярные</button>
           <button className={`pill${sort === "price_asc" ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setSort(sort === "price_asc" ? "new" : "price_asc")}>Дешевле</button>
           <button className={`pill${sort === "price_desc" ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setSort(sort === "price_desc" ? "new" : "price_desc")}>Дороже</button>
           <button className="pill" style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setSearch("")}>Сброс поиска</button>
-          <button className="pill" style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => { setKindFilter("ALL"); setCurrencyFilter("ALL"); setSort("new"); }}>Сброс фильтров</button>
+          <button className="pill" style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => { setKindFilter("ALL"); setTypeFilter("ALL"); setCurrencyFilter("ALL"); setSort("new"); }}>Сброс фильтров</button>
         </div>}
 
         {loading && (
@@ -3681,65 +3761,166 @@ function WalletSheet({
 }
 
 function CartSheet({
+  me,
   items,
   onClose,
   onRemove,
   onClear,
   onOpenOffer,
+  onBuy,
 }: {
+  me: User;
   items: Offer[];
   onClose: () => void;
   onRemove: (offerId: string) => void;
   onClear: () => void;
   onOpenOffer: (offer: Offer) => void;
+  onBuy: (offer: Offer) => Promise<boolean>;
 }) {
-  const totalStars = items.filter((item) => item.cur === "STARS").reduce((sum, item) => sum + Number(item.price || 0), 0);
-  const totalRobux = items.filter((item) => item.cur === "ROBUX").reduce((sum, item) => sum + Number(item.price || 0), 0);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(items.map((item) => item.id)));
+  const [paying, setPaying] = useState(false);
+
+  useEffect(() => {
+    setSelectedIds((current) => {
+      if (current.size === 0) return current;
+      const next = new Set<string>();
+      items.forEach((item) => {
+        if (current.has(item.id)) next.add(item.id);
+      });
+      return next;
+    });
+  }, [items]);
+
+  const selectedItems = useMemo(() => items.filter((item) => selectedIds.has(item.id)), [items, selectedIds]);
+  const totalStars = selectedItems.filter((item) => item.cur === "STARS").reduce((sum, item) => sum + Number(item.price || 0), 0);
+  const totalRobux = selectedItems.filter((item) => item.cur === "ROBUX").reduce((sum, item) => sum + Number(item.price || 0), 0);
+  const allSelected = items.length > 0 && selectedIds.size === items.length;
+  const insufficientBalance = totalStars > me.stars || totalRobux > me.robux;
+
+  const toggleItem = (offerId: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(offerId)) next.delete(offerId);
+      else next.add(offerId);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setSelectedIds(allSelected ? new Set() : new Set(items.map((item) => item.id)));
+  };
+
+  const deleteSelected = () => {
+    selectedItems.forEach((item) => onRemove(item.id));
+    setSelectedIds(new Set());
+  };
+
+  const paySelected = async () => {
+    if (!selectedItems.length || insufficientBalance || paying) return;
+    setPaying(true);
+    for (const item of selectedItems) {
+      const ok = await onBuy(item);
+      if (ok) onRemove(item.id);
+      else break;
+    }
+    setPaying(false);
+  };
+
+  const payLabel =
+    totalStars > 0 && totalRobux > 0
+      ? "Оплатить выбранное"
+      : totalRobux > 0
+        ? "Оплатить Robux"
+        : "Оплатить Stars";
+
   return (
-    <Sheet onClose={onClose} maxWidth={540}>
-      <SectionTitle right={items.length > 0 ? <button className="btn-ghost" style={{ padding: "7px 10px", fontSize: 12 }} onClick={onClear}>Очистить</button> : null}>
-        Корзина
-      </SectionTitle>
+    <Sheet onClose={onClose} maxWidth={540} fullScreen>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14 }}>
+        <BalanceChip kind="STARS" value={me.stars} />
+        <BalanceChip kind="ROBUX" value={me.robux} />
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+        <button className="tap-scale" onClick={toggleAll} style={{ border: "none", background: "transparent", color: T.text, fontWeight: 900, fontSize: 16, padding: 0, cursor: "pointer" }}>
+          <span style={{ color: T.blue, marginRight: 8 }}>{allSelected ? "✓" : "○"}</span>
+          {allSelected ? "Unselect all" : "Select all"} · {selectedItems.length}
+        </button>
+        <button
+          className="tap-scale"
+          onClick={deleteSelected}
+          disabled={!selectedItems.length}
+          style={{ border: "none", background: "transparent", color: selectedItems.length ? T.red : T.text3, fontWeight: 900, fontSize: 16, padding: 0, cursor: selectedItems.length ? "pointer" : "default" }}
+        >
+          Delete · {selectedItems.length}
+        </button>
+      </div>
+
       {items.length === 0 && (
-        <div className="panel" style={{ padding: 16, color: T.text2, lineHeight: 1.6 }}>
+        <div className="panel" style={{ padding: 16, color: T.text2, lineHeight: 1.6, marginTop: 20 }}>
           Корзина пустая. Нажми на иконку корзины в карточке товара, чтобы добавить его сюда.
         </div>
       )}
       {items.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div className="panel" style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
-            <div>
-              <div className="title" style={{ color: T.gold, fontSize: 20 }}>{items.length}</div>
-              <div style={{ color: T.text3, fontSize: 11 }}>товаров</div>
-            </div>
-            <div>
-              <div className="title" style={{ color: T.gold, fontSize: 20 }}>$ {totalStars}</div>
-              <div style={{ color: T.text3, fontSize: 11 }}>доллары</div>
-            </div>
-            <div>
-              <div className="title" style={{ color: T.gold, fontSize: 20 }}>{totalRobux} R$</div>
-              <div style={{ color: T.text3, fontSize: 11 }}>robux</div>
-            </div>
-          </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, minHeight: "calc(100dvh - 250px)" }}>
           {items.map((item) => (
-            <div key={item.id} className="panel" style={{ padding: 12, display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 58, height: 58, borderRadius: 14, background: getOfferCover(item) ? `url(${getOfferCover(item)}) center/cover` : getProfileGradient(item.user), flexShrink: 0 }} />
+            <div key={item.id} className="panel" style={{ padding: 12, display: "flex", alignItems: "center", gap: 12, borderRadius: 20, background: "rgba(255,255,255,.045)" }}>
+              <button
+                className="tap-scale"
+                onClick={() => onOpenOffer(item)}
+                style={{
+                  width: 74,
+                  height: 74,
+                  borderRadius: 18,
+                  border: "none",
+                  background: getOfferCover(item) ? `url(${getOfferCover(item)}) center/cover` : getProfileGradient(item.user),
+                  flexShrink: 0,
+                  cursor: "pointer",
+                }}
+                title="Открыть товар"
+              />
               <button
                 onClick={() => onOpenOffer(item)}
                 style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", color: T.text, textAlign: "left", padding: 0, cursor: "pointer" }}
               >
-                <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.title}</div>
-                <div style={{ color: T.text3, fontSize: 12, marginTop: 3 }}>@{getUsername(item.user)} • {item.type}</div>
+                <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 16 }}>{item.title}</div>
+                <div style={{ color: T.text3, fontSize: 13, marginTop: 4 }}>#{compactEntityId(item.created_at, item.id)}</div>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "5px 9px", borderRadius: 999, background: "rgba(35,151,255,.12)", color: T.blue, fontWeight: 900, fontSize: 13 }}>
+                  {item.cur === "ROBUX" ? "R$" : "$"} {item.price}
+                </div>
               </button>
-              <div style={{ fontWeight: 900, color: T.blue, whiteSpace: "nowrap" }}>{item.price} {item.cur === "ROBUX" ? "R$" : "$"}</div>
-              <button className="btn-ghost tap-scale" style={{ width: 36, height: 36, padding: 0, borderRadius: 12 }} onClick={() => onRemove(item.id)}>
-                ×
+              <button
+                className="tap-scale"
+                onClick={() => toggleItem(item.id)}
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 999,
+                  border: "none",
+                  background: selectedIds.has(item.id) ? T.blue : "rgba(255,255,255,.12)",
+                  color: "#fff",
+                  fontWeight: 1000,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+                title={selectedIds.has(item.id) ? "Убрать из выбора" : "Выбрать"}
+              >
+                {selectedIds.has(item.id) ? "✓" : ""}
               </button>
             </div>
           ))}
-          <button className="btn-primary" onClick={onClose}>
-            Продолжить покупки
-          </button>
+
+          <div style={{ marginTop: "auto", paddingTop: 18 }}>
+            {insufficientBalance && <div style={{ color: T.red, textAlign: "center", marginBottom: 10, fontSize: 14 }}>Недостаточно средств</div>}
+            <button className="btn-primary" onClick={paySelected} disabled={!selectedItems.length || insufficientBalance || paying} style={{ width: "100%", borderRadius: 22, minHeight: 60, flexDirection: "column", gap: 2 }}>
+              <span>{paying ? "Оплата..." : payLabel}</span>
+              <span style={{ fontSize: 12, opacity: .75 }}>
+                {totalStars > 0 ? `${totalStars} Stars` : ""}{totalStars > 0 && totalRobux > 0 ? " · " : ""}{totalRobux > 0 ? `${totalRobux} Robux` : ""}
+              </span>
+            </button>
+            <button className="btn-ghost" onClick={onClear} style={{ width: "100%", marginTop: 10, borderRadius: 18 }}>
+              Очистить корзину
+            </button>
+          </div>
         </div>
       )}
     </Sheet>
@@ -4317,97 +4498,45 @@ export default function App() {
   }, [me, openChat]);
 
   const handleBuy = useCallback(async (offer: Offer) => {
-    if (!me) return;
+    if (!me) return false;
     if (offer.uid === me.id) {
       showToast("Нельзя купить свой собственный товар.", "err");
-      return;
+      return false;
     }
     if (Number(offer.stock ?? 1) < 1) {
       showToast("Товар закончился.", "err");
-      return;
+      return false;
     }
 
     const enoughBalance = offer.cur === "STARS" ? me.stars >= offer.price : me.robux >= offer.price;
     if (!enoughBalance) {
       showToast("Недостаточно средств.", "err");
-      return;
+      return false;
     }
 
-    const nextStars = offer.cur === "STARS" ? me.stars - offer.price : me.stars;
-    const nextRobux = offer.cur === "ROBUX" ? me.robux - offer.price : me.robux;
+    const res = await fetch("/api/orders/purchase", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ offerId: offer.id }),
+    });
+    const result = await res.json().catch(() => null);
 
-    const { data: updatedBuyer } = await supabase.from("users").update({ stars: nextStars, robux: nextRobux }).eq("id", me.id).select().single();
-    if (updatedBuyer) setMe(updatedBuyer as User);
-
-    const currencyField = offer.cur === "STARS" ? "stars" : "robux";
-    const { data: seller } = await supabase.from("users").select("stars,robux,worth,sales").eq("id", offer.uid).single();
-    if (seller) {
-      await supabase
-        .from("users")
-        .update({
-          [currencyField]: Number(seller[currencyField as "stars" | "robux"] || 0) + offer.price,
-          worth: Number(seller.worth || 0) + offer.price,
-          sales: Number(seller.sales || 0) + 1,
-        })
-        .eq("id", offer.uid);
+    if (!res.ok || !result?.ok) {
+      const message = result?.error?.includes("insufficient_funds") ? "Недостаточно средств." : result?.error || "Не удалось оформить покупку.";
+      showToast(message, "err");
+      return false;
     }
 
-    const orderId = `ord_${Date.now()}`;
-    const nextStatus: OrderStatus = offer.auto ? "confirmed" : "pending";
+    if (result.buyer) setMe(result.buyer as User);
 
-    await supabase.from("orders").insert({
-      id: orderId,
-      offer_id: offer.id,
-      buyer_uid: me.id,
-      seller_uid: offer.uid,
-      offer_snap: offer,
-      price: offer.price,
-      cur: offer.cur,
-      status: nextStatus,
-      review_left: false,
-    });
-
-    await supabase.from("purchases").insert({
-      id: `purchase_${Date.now()}`,
-      uid: me.id,
-      offer_snap: offer,
-      price: offer.price,
-      cur: offer.cur,
-    });
-
-    await supabase.from("offers").update({ sales: Number(offer.sales || 0) + 1, stock: Math.max(0, Number(offer.stock ?? 1) - 1) }).eq("id", offer.id);
-
-    await supabase.from("messages").insert({
-      id: `sys_${Date.now()}`,
-      from_uid: me.id,
-      to_uid: offer.uid,
-      text: `Система: покупатель оплатил заказ #${shortOrderId(orderId)}.\n1 шт. на сумму ${formatPrice(offer.price, offer.cur)}.\nПокупатель: @${getUsername(me)}`,
-      img: null,
-      read: false,
-      file_type: "system",
-    });
-    await notifyTelegram(
-      offer.uid,
-      `Покупатель оплатил заказ #${shortOrderId(orderId)}\n1 шт. на сумму ${formatPrice(offer.price, offer.cur)}\nПокупатель: @${getUsername(me)}`,
-      "Открыть чат",
-      `${getAppBaseUrl()}?chat=${me.id}`
-    );
-
-    if (offer.auto) {
-      await supabase.from("messages").insert({
-        id: `sys_auto_${Date.now()}`,
-        from_uid: offer.uid,
-        to_uid: me.id,
-        text: `Автовыдача по заказу #${shortOrderId(orderId)}\n\n${offer.auto_content || "Контент для автовыдачи не указан."}`,
-        img: null,
-        read: false,
-        file_type: "system",
-      });
+    if (result.autoContent) {
+      setAutoContent(result.autoContent);
       showToast("Покупка завершена, товар выдан автоматически.");
     } else {
       showToast("Покупка создана, продавец уже получил уведомление и оплату.");
     }
-  }, [me, notifyTelegram, showToast]);
+    return true;
+  }, [me, showToast]);
 
   if (status === "loading") {
     return (
@@ -4537,10 +4666,12 @@ export default function App() {
       {showMenu && <MarketMenuSheet onClose={() => setShowMenu(false)} onOpenSupport={() => setShowSupport(true)} showToast={showToast} />}
       {showCart && (
         <CartSheet
+          me={me}
           items={cartItems}
           onClose={() => setShowCart(false)}
           onRemove={removeFromCart}
           onClear={() => setCartItems([])}
+          onBuy={handleBuy}
           onOpenOffer={(offer) => {
             setShowCart(false);
             setSelectedOffer(offer);
