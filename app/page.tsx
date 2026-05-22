@@ -554,6 +554,12 @@ function isValidBotUsername(username: string) {
   return /^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(username) && !lower.includes("your_bot_username");
 }
 
+function getTelegramInitDataFromUrl() {
+  if (typeof window === "undefined") return "";
+  const read = (value: string) => new URLSearchParams(value.replace(/^[?#]/, "")).get("tgWebAppData") || "";
+  return read(window.location.hash) || read(window.location.search);
+}
+
 function getOfferRulesStorageKey(userId: string) {
   return `${OFFER_RULES_STORAGE_KEY}:${userId}`;
 }
@@ -893,7 +899,7 @@ function LoadingScreen() {
   );
 }
 
-function TelegramLoginScreen() {
+function TelegramLoginScreen({ authError = "" }: { authError?: string }) {
   const initialBotUsername = normalizeBotUsername(process.env.NEXT_PUBLIC_BOT_USERNAME || "");
   const [botUsername, setBotUsername] = useState(() => (isValidBotUsername(initialBotUsername) ? initialBotUsername : ""));
   const [botConfigLoaded, setBotConfigLoaded] = useState(() => isValidBotUsername(initialBotUsername));
@@ -965,6 +971,11 @@ function TelegramLoginScreen() {
         <div style={{ color: T.text2, fontSize: 14, lineHeight: 1.7, margin: "0 0 24px" }}>
           Маркет для Roblox-разработчиков прямо в Telegram Web App.
         </div>
+        {authError && (
+          <div style={{ color: T.red, fontSize: 12, lineHeight: 1.5, margin: "0 0 12px" }}>
+            {authError}
+          </div>
+        )}
         <div className="panel" style={{ padding: 14, marginBottom: 16, background: "linear-gradient(135deg,rgba(149,100,255,.24),rgba(89,207,255,.12))" }}>
           <div id="telegram-widget" style={{ display: "flex", justifyContent: "center", minHeight: 52 }}>
             {!botConfigLoaded && <Spinner />}
@@ -3958,6 +3969,7 @@ export default function App() {
   const [me, setMe] = useState<User | null>(null);
   const [tgUser, setTgUser] = useState<TelegramUser | null>(null);
   const [pendingAuthPayload, setPendingAuthPayload] = useState<TelegramAuthPayload | null>(null);
+  const [authError, setAuthError] = useState("");
   const [tab, setTab] = useState("home");
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [chatUser, setChatUser] = useState<User | null>(null);
@@ -4015,6 +4027,7 @@ export default function App() {
   }, []);
 
   const authTelegram = useCallback(async (payload: TelegramAuthPayload) => {
+    setAuthError("");
     const res = await fetch("/api/auth/telegram", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4023,6 +4036,7 @@ export default function App() {
     const result = await res.json().catch(() => null);
 
     if (!res.ok || !result?.ok) {
+      setAuthError(result?.error || "Telegram auth failed.");
       setStatus("widget");
       return;
     }
@@ -4075,12 +4089,12 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     let attempt = 0;
-    const maxAttempts = 20;
+    const maxAttempts = 100;
 
     const detectTelegramUser = () => {
       if (cancelled) return;
       const telegramWebApp = getTelegramWebApp();
-      const initData = telegramWebApp?.initData || "";
+      const initData = telegramWebApp?.initData || getTelegramInitDataFromUrl();
       const windowTelegramUser = telegramWebApp?.initDataUnsafe?.user;
 
       if (telegramWebApp && initData) {
@@ -4431,7 +4445,7 @@ export default function App() {
     return (
       <>
         <style>{CSS}</style>
-        <TelegramLoginScreen />
+        <TelegramLoginScreen authError={authError} />
       </>
     );
   }
