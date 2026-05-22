@@ -1777,15 +1777,10 @@ function HomeScreen({
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [currencyFilter, setCurrencyFilter] = useState<Currency | "ALL">("ALL");
   const [sort, setSort] = useState<"new" | "sales" | "price_asc" | "price_desc">("new");
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const [compactMode, setCompactMode] = useState(false);
 
-  const activeTypes = useMemo(() => {
-    if (kindFilter === "ALL") {
-      return [...new Set(Object.values(OFFER_TYPES).flat())];
-    }
-    return OFFER_TYPES[kindFilter];
-  }, [kindFilter]);
+  const activeTypes = useMemo(() => (kindFilter === "ALL" ? [] : OFFER_TYPES[kindFilter]), [kindFilter]);
 
   const selectKind = (kind: OfferKind | "ALL") => {
     setKindFilter(kind);
@@ -1896,8 +1891,29 @@ function HomeScreen({
           </div>
         </button>}
 
-        <div className="hide-scrollbar" style={{ display: "flex", alignItems: "center", gap: 8, overflowX: "auto", marginBottom: 12, paddingBottom: 3 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 7, marginBottom: 10 }}>
+          <button
+            className="tap-scale"
+            onClick={() => selectKind("ALL")}
+            style={{
+              border: "none",
+              borderRadius: 13,
+              padding: "0 6px",
+              minWidth: 0,
+              height: 38,
+              background: kindFilter === "ALL" ? "#fff" : "#242424",
+              color: kindFilter === "ALL" ? "#050505" : "#9A9A9A",
+              fontSize: 14,
+              lineHeight: 1,
+              fontWeight: 900,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Все
+          </button>
           {KIND_TABS.map((tab) => {
+            if (tab.value === "ALL") return null;
             const active = kindFilter === tab.value;
             return (
               <button
@@ -1906,15 +1922,19 @@ function HomeScreen({
                 onClick={() => selectKind(tab.value)}
                 style={{
                   border: "none",
-                  borderRadius: 14,
-                  padding: "8px 15px",
+                  borderRadius: 13,
+                  padding: "0 6px",
+                  minWidth: 0,
+                  height: 38,
                   background: active ? "#fff" : "#242424",
                   color: active ? "#050505" : "#9A9A9A",
-                  fontSize: 24,
+                  fontSize: 14,
                   lineHeight: 1,
-                  fontWeight: 1000,
+                  fontWeight: 900,
                   cursor: "pointer",
                   whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
                   boxShadow: active ? "0 14px 28px rgba(255,255,255,.12)" : "inset 0 1px 0 rgba(255,255,255,.06)",
                 }}
               >
@@ -1922,42 +1942,46 @@ function HomeScreen({
               </button>
             );
           })}
-          <button className="tap-scale" onClick={onOpenCart} style={{ border: "none", background: "transparent", padding: "0 2px", color: "#777", fontSize: 20, lineHeight: 1, fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" }}>
-            Корзина{cartCount ? ` (${cartCount})` : ""}
-          </button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 46px 46px", gap: 8, marginBottom: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 42px 42px 42px", gap: 7, marginBottom: 10 }}>
           <div style={{ position: "relative" }}>
             <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#6B6B6B", fontSize: 25, lineHeight: 1 }}>⌕</span>
             <input
               className="inp"
-              style={{ height: 46, paddingLeft: 43, fontSize: 15, fontWeight: 900, borderRadius: 999, background: "#1A1A1A" }}
+              style={{ height: 42, paddingLeft: 42, fontSize: 14, fontWeight: 900, borderRadius: 999, background: "#1A1A1A" }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Быстрый поиск"
             />
           </div>
-          <button className="btn-ghost tap-scale" title="Фильтры" style={{ width: 46, height: 46, borderRadius: 999, padding: 0, background: showFilters ? "#2F2F2F" : "#1E1E1E" }} onClick={() => setShowFilters((value) => !value)}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D8D8D8" strokeWidth="2.8" strokeLinecap="round">
+          <button className="btn-ghost tap-scale" title="Фильтры" style={{ width: 42, height: 42, borderRadius: 999, padding: 0, background: showFilters ? "#2F2F2F" : "#1E1E1E" }} onClick={() => setShowFilters((value) => !value)}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D8D8D8" strokeWidth="2.7" strokeLinecap="round">
               <path d="M5 7h14M5 12h14M5 17h14" />
             </svg>
           </button>
-          <button className="btn-ghost tap-scale" title="Свернуть баннер" style={{ width: 46, height: 46, borderRadius: 999, padding: 0, background: "#fff" }} onClick={() => setCompactMode((value) => !value)}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+          <button className="btn-ghost tap-scale" title="Корзина" style={{ width: 42, height: 42, borderRadius: 999, padding: 0, background: cartCount ? "rgba(35,151,255,.22)" : "#1E1E1E", position: "relative" }} onClick={onOpenCart}>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={cartCount ? T.blue : "#D8D8D8"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 9h12l-1 10H7L6 9Z" />
+              <path d="M9 9a3 3 0 0 1 6 0" />
+            </svg>
+            {cartCount > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 17, height: 17, borderRadius: 999, background: T.blue, color: "#fff", fontSize: 10, fontWeight: 900, display: "grid", placeItems: "center", padding: "0 4px" }}>{cartCount}</span>}
+          </button>
+          <button className="btn-ghost tap-scale" title="Свернуть баннер" style={{ width: 42, height: 42, borderRadius: 999, padding: 0, background: "#fff" }} onClick={() => setCompactMode((value) => !value)}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
               <path d={compactMode ? "m6 10 6 6 6-6" : "m6 14 6-6 6 6"} />
             </svg>
           </button>
         </div>
 
-        <div className="hide-scrollbar portal-appear" style={{ display: "flex", alignItems: "center", gap: 8, overflowX: "auto", marginBottom: showFilters ? 10 : 16, paddingBottom: 2 }}>
+        {kindFilter !== "ALL" && <div className="hide-scrollbar portal-appear" style={{ display: "flex", alignItems: "center", gap: 8, overflowX: "auto", marginBottom: showFilters ? 10 : 16, paddingBottom: 2 }}>
           <button className={`pill${typeFilter === "ALL" ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setTypeFilter("ALL")}>Все</button>
           {activeTypes.map((type) => (
             <button key={type} className={`pill${typeFilter === type ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setTypeFilter(typeFilter === type ? "ALL" : type)}>
               {type}
             </button>
           ))}
-        </div>
+        </div>}
 
         {showFilters && <div className="hide-scrollbar portal-appear" style={{ display: "flex", alignItems: "center", gap: 8, overflowX: "auto", marginBottom: 16, paddingBottom: 2 }}>
           <button className="btn-ghost tap-scale" style={{ width: 42, height: 42, borderRadius: 999, padding: 0, background: "#222" }} onClick={() => setCurrencyFilter("ALL")}>
