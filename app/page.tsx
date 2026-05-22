@@ -164,11 +164,10 @@ const KIND_LABELS: Record<OfferKind, string> = {
   COURSE: "Обучение",
 };
 
-const KIND_TABS: Array<{ value: OfferKind | "ALL"; label: string }> = [
-  { value: "ALL", label: "Все" },
+const KIND_TABS: Array<{ value: OfferKind; label: string }> = [
   { value: "PRODUCT", label: "Товары" },
   { value: "SERVICE", label: "Услуги" },
-  { value: "COURSE", label: "Курсы" },
+  { value: "COURSE", label: "Обучение" },
 ];
 
 const OFFER_TYPES: Record<OfferKind, string[]> = {
@@ -1765,16 +1764,16 @@ function HomeScreen({
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [kindFilter, setKindFilter] = useState<OfferKind | "ALL">("ALL");
+  const [kindFilter, setKindFilter] = useState<OfferKind>("PRODUCT");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [currencyFilter, setCurrencyFilter] = useState<Currency | "ALL">("ALL");
   const [sort, setSort] = useState<"new" | "sales" | "price_asc" | "price_desc">("new");
   const [showFilters, setShowFilters] = useState(false);
   const [compactMode, setCompactMode] = useState(false);
 
-  const activeTypes = useMemo(() => (kindFilter === "ALL" ? [] : OFFER_TYPES[kindFilter]), [kindFilter]);
+  const activeTypes = useMemo(() => OFFER_TYPES[kindFilter], [kindFilter]);
 
-  const selectKind = (kind: OfferKind | "ALL") => {
+  const selectKind = (kind: OfferKind) => {
     setKindFilter(kind);
     setTypeFilter("ALL");
   };
@@ -1806,9 +1805,7 @@ function HomeScreen({
       result = result.filter((offer) => offer.title.toLowerCase().includes(q) || offer.description.toLowerCase().includes(q) || offer.type.toLowerCase().includes(q));
     }
 
-    if (kindFilter !== "ALL") {
-      result = result.filter((offer) => offer.kind === kindFilter);
-    }
+    result = result.filter((offer) => offer.kind === kindFilter);
 
     if (typeFilter !== "ALL") {
       result = result.filter((offer) => offer.type === typeFilter);
@@ -1883,47 +1880,31 @@ function HomeScreen({
           </div>
         </button>}
 
-        <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: 12, minWidth: 0 }}>
-          <button
-            className="tap-scale"
-            onClick={() => {
-              selectKind("ALL");
-              setSearch("");
-            }}
-            style={{
-              border: "none",
-              background: "transparent",
-              padding: 0,
-              color: "#fff",
-              fontSize: 30,
-              lineHeight: 1,
-              fontWeight: 1000,
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Все товары
-          </button>
-          <button
-            className="tap-scale"
-            onClick={onOpenCart}
-            style={{
-              border: "none",
-              background: "transparent",
-              padding: 0,
-              color: cartCount ? T.blue : "#3D3D3D",
-              fontSize: 26,
-              lineHeight: 1,
-              fontWeight: 1000,
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Корзина{cartCount ? ` (${cartCount})` : ""}
-          </button>
+        <div className="hide-scrollbar portal-appear" style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 14, minWidth: 0, overflowX: "auto", paddingBottom: 2 }}>
+          {KIND_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              className="tap-scale"
+              onClick={() => selectKind(tab.value)}
+              style={{
+                border: "none",
+                background: "transparent",
+                padding: 0,
+                color: kindFilter === tab.value ? "#fff" : "#545454",
+                fontSize: 30,
+                lineHeight: 1,
+                fontWeight: 1000,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 46px 46px", gap: 8, marginBottom: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 46px 46px 46px", gap: 8, marginBottom: showFilters ? 10 : 16 }}>
           <div style={{ position: "relative" }}>
             <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#6B6B6B", fontSize: 25, lineHeight: 1 }}>⌕</span>
             <input
@@ -1939,6 +1920,13 @@ function HomeScreen({
               <path d="M5 7h14M5 12h14M5 17h14" />
             </svg>
           </button>
+          <button className="btn-ghost tap-scale" title="Корзина" style={{ position: "relative", width: 46, height: 46, borderRadius: 999, padding: 0, background: cartCount ? "rgba(35,151,255,.18)" : "#1E1E1E", borderColor: cartCount ? "rgba(35,151,255,.4)" : "rgba(255,255,255,.12)" }} onClick={onOpenCart}>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke={cartCount ? T.blue : "#D8D8D8"} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 7h12l-1 12H7L6 7Z" />
+              <path d="M9 7a3 3 0 0 1 6 0" />
+            </svg>
+            {cartCount > 0 && <span style={{ position: "absolute", right: -2, top: -3, minWidth: 17, height: 17, borderRadius: 999, display: "grid", placeItems: "center", padding: "0 4px", background: T.blue, color: "#fff", fontSize: 10, fontWeight: 1000, lineHeight: 1 }}>{cartCount}</span>}
+          </button>
           <button className="btn-ghost tap-scale" title="Свернуть баннер" style={{ width: 46, height: 46, borderRadius: 999, padding: 0, background: "#fff" }} onClick={() => setCompactMode((value) => !value)}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
               <path d={compactMode ? "m6 10 6 6 6-6" : "m6 14 6-6 6 6"} />
@@ -1946,18 +1934,7 @@ function HomeScreen({
           </button>
         </div>
 
-        <div className="portal-appear" style={{ display: "grid", gridTemplateColumns: "42px repeat(4, minmax(0, 1fr))", alignItems: "center", gap: 6, marginBottom: 16 }}>
-          <button className="btn-ghost tap-scale" style={{ width: 42, height: 42, borderRadius: 999, padding: 0, background: "#222" }} onClick={() => { setCurrencyFilter("ALL"); setSort("new"); }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="#A7A7A7"><path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z" /></svg>
-          </button>
-          {KIND_TABS.map((tab) => (
-            <button key={tab.value} className={`pill${kindFilter === tab.value ? " active" : ""}`} style={{ width: "100%", minWidth: 0, height: 42, justifyContent: "center", padding: "0 4px", fontSize: 14 }} onClick={() => selectKind(tab.value)}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {kindFilter !== "ALL" && <div className="hide-scrollbar portal-appear" style={{ display: "flex", alignItems: "center", gap: 8, overflowX: "auto", marginBottom: showFilters ? 10 : 16, paddingBottom: 2 }}>
+        {showFilters && <div className="hide-scrollbar portal-appear" style={{ display: "flex", alignItems: "center", gap: 8, overflowX: "auto", marginBottom: 10, paddingBottom: 2 }}>
           <button className={`pill${typeFilter === "ALL" ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setTypeFilter("ALL")}>Все</button>
           {activeTypes.map((type) => (
             <button key={type} className={`pill${typeFilter === type ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setTypeFilter(typeFilter === type ? "ALL" : type)}>
@@ -1973,7 +1950,7 @@ function HomeScreen({
           <button className={`pill${sort === "price_asc" ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setSort(sort === "price_asc" ? "new" : "price_asc")}>Дешевле</button>
           <button className={`pill${sort === "price_desc" ? " active" : ""}`} style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setSort(sort === "price_desc" ? "new" : "price_desc")}>Дороже</button>
           <button className="pill" style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => setSearch("")}>Сброс поиска</button>
-          <button className="pill" style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => { setKindFilter("ALL"); setTypeFilter("ALL"); setCurrencyFilter("ALL"); setSort("new"); }}>Сброс фильтров</button>
+          <button className="pill" style={{ height: 42, padding: "0 15px", fontSize: 14 }} onClick={() => { setKindFilter("PRODUCT"); setTypeFilter("ALL"); setCurrencyFilter("ALL"); setSort("new"); }}>Сброс фильтров</button>
         </div>}
 
         {loading && (
